@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bach · Listening Space — Nathan Howland</title>
+    <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vexflow@3.0.9/releases/vexflow.js"></script>
+    <style>
+        :root {
+            --bg:           #0d1117;
+            --bg-alt:       #161b27;
+            --text:         #e6edf3;
+            --text-muted:   #8b949e;
+            --accent:       #58a6ff;
+            --accent-light: #79b8ff;
+            --border:       #30363d;
+            --green:        #3fb950;
+            --red:          #f85149;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            height: 56px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(13,17,23,0.94);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+        .back-link { font-size:.8125rem; color:var(--text-muted); text-decoration:none; transition:color .15s; }
+        .back-link:hover { color:var(--accent); }
+        .audio-badge { font-size:.75rem; color:var(--text-muted); display:flex; align-items:center; gap:6px; }
+        .audio-badge .dot { width:7px; height:7px; border-radius:50%; background:var(--border); transition:background .3s; }
+        .audio-badge .dot.ready   { background:var(--green);  box-shadow:0 0 6px var(--green); }
+        .audio-badge .dot.playing { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+
+        main { flex:1; display:flex; align-items:flex-start; justify-content:center; padding:32px 16px; }
+
+        .card {
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 32px 28px 24px;
+            width: 100%;
+            max-width: 820px;
+        }
+
+        /* ── Now playing ── */
+        .now-playing {
+            margin-bottom: 18px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .np-collection { font-size:.6875rem; color:var(--text-muted); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
+        .np-title { font-size:1.125rem; color:var(--text); font-weight:700; letter-spacing:.02em; }
+
+        /* ── Info row ── */
+        .info-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .info-instr { font-size:.8125rem; color:var(--accent-light); }
+        .btn-shuffle {
+            padding: 6px 12px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1.5px solid var(--border);
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: .75rem;
+            cursor: pointer;
+            transition: all .15s;
+            flex-shrink: 0;
+        }
+        .btn-shuffle:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+        .btn-shuffle:disabled { opacity:.3; cursor:not-allowed; }
+
+        /* ── Status ── */
+        #status { font-size:.8125rem; color:var(--text-muted); min-height:1.2em; margin-bottom:14px; }
+
+        /* ── Score ── */
+        .score-wrap {
+            background: #f4f0e6;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            min-height: 200px;
+            position: relative;
+        }
+        #score-container {
+            width: 100%;
+        }
+        #score-container svg { display:block; }
+        /* Ensure VexFlow SVG is readable on cream background */
+        #score-container svg text { font-family: 'Times New Roman', serif !important; }
+        .score-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .75rem;
+            color: #999;
+            background: #f4f0e6;
+        }
+
+        /* ── Timeline ── */
+        .timeline-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .time-label { font-size:.75rem; color:var(--text-muted); width:36px; flex-shrink:0; }
+        .time-label.right { text-align:right; }
+
+        /* ── Transport ── */
+        .transport-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .btn-transport {
+            padding: 10px 16px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1.5px solid var(--border);
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all .15s;
+            flex-shrink: 0;
+        }
+        .btn-transport:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+        .btn-transport:disabled { opacity:.3; cursor:not-allowed; }
+        .btn-playpause {
+            padding: 10px 22px;
+            background: var(--accent);
+            color: #0d1117;
+            border: 2px solid var(--accent);
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .15s;
+            flex-shrink: 0;
+        }
+        .btn-playpause:hover:not(:disabled) { background:var(--accent-light); border-color:var(--accent-light); box-shadow:0 0 18px rgba(88,166,255,.35); }
+        .btn-playpause:disabled { opacity:.3; cursor:not-allowed; }
+
+        .tempo-box {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .75rem;
+            color: var(--text-muted);
+        }
+        #tempo-val { color:var(--accent); font-weight:700; }
+
+        /* ── Shared range styles ── */
+        input[type=range] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(88,166,255,.4);
+        }
+        input[type=range]::-webkit-slider-thumb:hover { background:var(--accent-light); }
+        #sl-tempo { width:100%; }
+
+        .hint { margin-top:16px; font-size:.6875rem; color:var(--border); letter-spacing:.04em; }
+
+        @media (max-width:500px) {
+            .card { padding:20px 12px 16px; }
+            .np-title { font-size:.9375rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <a href="../index.html" class="back-link">← nathanhowland.com</a>
+    <div class="audio-badge">
+        <div class="dot" id="audio-dot"></div>
+        <span id="audio-label">loading…</span>
+    </div>
+</header>
+
+<main>
+<div class="card">
+    <div class="now-playing">
+        <div class="np-collection" id="np-collection">—</div>
+        <div class="np-title"     id="np-title">—</div>
+    </div>
+
+    <div class="info-row">
+        <span class="info-instr" id="info-instr">—</span>
+        <button class="btn-shuffle" id="btn-shuffle-instr" disabled>⟳ instrument</button>
+    </div>
+    <div class="info-row" style="margin-bottom:16px">
+        <span style="font-size:.75rem;color:var(--text-muted)" id="measure-label"></span>
+        <button class="btn-shuffle" id="btn-shuffle-piece" disabled>⟳ shuffle piece</button>
+    </div>
+
+    <div id="status">initialising…</div>
+
+    <div class="score-wrap">
+        <div id="score-container"></div>
+        <div class="score-loading" id="score-loading">load a piece to begin</div>
+    </div>
+
+    <div class="timeline-row">
+        <span class="time-label" id="time-curr">0:00</span>
+        <input type="range" id="sl-timeline" min="0" max="10000" value="0" disabled>
+        <span class="time-label right" id="time-total">0:00</span>
+    </div>
+
+    <div class="transport-row">
+        <button class="btn-transport" id="btn-restart" disabled title="restart">⏮</button>
+        <button class="btn-playpause" id="btn-playpause" disabled>▶</button>
+        <div class="tempo-box">
+            <span>tempo</span>
+            <span id="tempo-val">× 1.00</span>
+        </div>
+    </div>
+    <input type="range" id="sl-tempo" min="0" max="1000" value="500">
+
+    <p class="hint">space · play/pause &nbsp;|&nbsp; r · restart &nbsp;|&nbsp; ← → · seek 5s</p>
+</div>
+</main>
+
+<script>
+'use strict';
+
+/* ─────────────────────────────────────────────────────── constants ── */
+
+const MIDI_FILES = [
+'../assets/audio_media/bach_midi/aof/can1.mid',
+'../assets/audio_media/bach_midi/aof/can2.mid',
+'../assets/audio_media/bach_midi/aof/can3.mid',
+'../assets/audio_media/bach_midi/aof/can4.mid',
+'../assets/audio_media/bach_midi/aof/cnt1.mid',
+'../assets/audio_media/bach_midi/aof/cnt2.mid',
+'../assets/audio_media/bach_midi/aof/cnt3.mid',
+'../assets/audio_media/bach_midi/aof/dou1.mid',
+'../assets/audio_media/bach_midi/aof/dou2.mid',
+'../assets/audio_media/bach_midi/aof/inver1.mid',
+'../assets/audio_media/bach_midi/aof/inver2.mid',
+'../assets/audio_media/bach_midi/aof/mir1.mid',
+'../assets/audio_media/bach_midi/aof/mir2.mid',
+'../assets/audio_media/bach_midi/aof/reg1.mid',
+'../assets/audio_media/bach_midi/aof/reg2.mid',
+'../assets/audio_media/bach_midi/aof/tri1.mid',
+'../assets/audio_media/bach_midi/aof/tri2.mid',
+'../assets/audio_media/bach_midi/aof/unfin.mid',
+'../assets/audio_media/bach_midi/brandenb/brand1.mid',
+'../assets/audio_media/bach_midi/brandenb/brand2.mid',
+'../assets/audio_media/bach_midi/brandenb/brand3.mid',
+'../assets/audio_media/bach_midi/brandenb/brand41.mid',
+'../assets/audio_media/bach_midi/brandenb/brand42.mid',
+'../assets/audio_media/bach_midi/brandenb/brand43.mid',
+'../assets/audio_media/bach_midi/brandenb/brand51.mid',
+'../assets/audio_media/bach_midi/brandenb/brand52.mid',
+'../assets/audio_media/bach_midi/brandenb/brand53.mid',
+'../assets/audio_media/bach_midi/cantatas/jesu1.mid',
+'../assets/audio_media/bach_midi/cantatas/jesu2.mid',
+'../assets/audio_media/bach_midi/cellosui/01allema.mid',
+'../assets/audio_media/bach_midi/cellosui/01couran.mid',
+'../assets/audio_media/bach_midi/cellosui/01gigue.mid',
+'../assets/audio_media/bach_midi/cellosui/01minuet.mid',
+'../assets/audio_media/bach_midi/cellosui/01prelud.mid',
+'../assets/audio_media/bach_midi/cellosui/01saraba.mid',
+'../assets/audio_media/bach_midi/cellosui/04allema.mid',
+'../assets/audio_media/bach_midi/cellosui/04bourre.mid',
+'../assets/audio_media/bach_midi/cellosui/04couran.mid',
+'../assets/audio_media/bach_midi/cellosui/04gigue.mid',
+'../assets/audio_media/bach_midi/cellosui/04prelud.mid',
+'../assets/audio_media/bach_midi/cellosui/04saraba.mid',
+'../assets/audio_media/bach_midi/chorales/01ausmei.mid',
+'../assets/audio_media/bach_midi/chorales/02ichdan.mid',
+'../assets/audio_media/bach_midi/chorales/03achgot.mid',
+'../assets/audio_media/bach_midi/chorales/04esistd.mid',
+'../assets/audio_media/bach_midi/chorales/05anwass.mid',
+'../assets/audio_media/bach_midi/chorales/06christ.mid',
+'../assets/audio_media/bach_midi/chorales/07nunlob.mid',
+'../assets/audio_media/bach_midi/chorales/08freuet.mid',
+'../assets/audio_media/bach_midi/chorales/09ermunt.mid',
+'../assets/audio_media/bach_midi/chorales/10austie.mid',
+'../assets/audio_media/bach_midi/chorales/11jesu.mid',
+'../assets/audio_media/bach_midi/chorales/12puerna.mid',
+'../assets/audio_media/bach_midi/chorales/13allein.mid',
+'../assets/audio_media/bach_midi/chorales/14oherre.mid',
+'../assets/audio_media/bach_midi/chorales/15christ.mid',
+'../assets/audio_media/bach_midi/fugues/fuguecm.mid',
+'../assets/audio_media/bach_midi/fugues/fuguegm.mid',
+'../assets/audio_media/bach_midi/gold/aria.mid',
+'../assets/audio_media/bach_midi/gold/goldberg.mid',
+'../assets/audio_media/bach_midi/gold/var1.mid',
+'../assets/audio_media/bach_midi/gold/var10.mid',
+'../assets/audio_media/bach_midi/gold/var11.mid',
+'../assets/audio_media/bach_midi/gold/var12c4.mid',
+'../assets/audio_media/bach_midi/gold/var13.mid',
+'../assets/audio_media/bach_midi/gold/var14.mid',
+'../assets/audio_media/bach_midi/gold/var15c5.mid',
+'../assets/audio_media/bach_midi/gold/var16.mid',
+'../assets/audio_media/bach_midi/gold/var17.mid',
+'../assets/audio_media/bach_midi/gold/var18c6.mid',
+'../assets/audio_media/bach_midi/gold/var19.mid',
+'../assets/audio_media/bach_midi/gold/var2.mid',
+'../assets/audio_media/bach_midi/gold/var20.mid',
+'../assets/audio_media/bach_midi/gold/var21c7.mid',
+'../assets/audio_media/bach_midi/gold/var22.mid',
+'../assets/audio_media/bach_midi/gold/var23.mid',
+'../assets/audio_media/bach_midi/gold/var24c8.mid',
+'../assets/audio_media/bach_midi/gold/var25.mid',
+'../assets/audio_media/bach_midi/gold/var26.mid',
+'../assets/audio_media/bach_midi/gold/var27c9.mid',
+'../assets/audio_media/bach_midi/gold/var28.mid',
+'../assets/audio_media/bach_midi/gold/var29.mid',
+'../assets/audio_media/bach_midi/gold/var30.mid',
+'../assets/audio_media/bach_midi/gold/var3c1.mid',
+'../assets/audio_media/bach_midi/gold/var4.mid',
+'../assets/audio_media/bach_midi/gold/var5.mid',
+'../assets/audio_media/bach_midi/gold/var6c2.mid',
+'../assets/audio_media/bach_midi/gold/var7.mid',
+'../assets/audio_media/bach_midi/gold/var8.mid',
+'../assets/audio_media/bach_midi/gold/var9c3.mid',
+'../assets/audio_media/bach_midi/invent/invent1.mid',
+'../assets/audio_media/bach_midi/invent/invent10.mid',
+'../assets/audio_media/bach_midi/invent/invent11.mid',
+'../assets/audio_media/bach_midi/invent/invent12.mid',
+'../assets/audio_media/bach_midi/invent/invent13.mid',
+'../assets/audio_media/bach_midi/invent/invent14.mid',
+'../assets/audio_media/bach_midi/invent/invent15.mid',
+'../assets/audio_media/bach_midi/invent/invent2.mid',
+'../assets/audio_media/bach_midi/invent/invent3.mid',
+'../assets/audio_media/bach_midi/invent/invent4.mid',
+'../assets/audio_media/bach_midi/invent/invent5.mid',
+'../assets/audio_media/bach_midi/invent/invent6.mid',
+'../assets/audio_media/bach_midi/invent/invent7.mid',
+'../assets/audio_media/bach_midi/invent/invent8.mid',
+'../assets/audio_media/bach_midi/invent/invent9.mid',
+'../assets/audio_media/bach_midi/organ/catech1.mid',
+'../assets/audio_media/bach_midi/organ/catech10.mid',
+'../assets/audio_media/bach_midi/organ/catech11.mid',
+'../assets/audio_media/bach_midi/organ/catech2.mid',
+'../assets/audio_media/bach_midi/organ/catech3.mid',
+'../assets/audio_media/bach_midi/organ/catech4.mid',
+'../assets/audio_media/bach_midi/organ/catech5.mid',
+'../assets/audio_media/bach_midi/organ/catech6.mid',
+'../assets/audio_media/bach_midi/organ/catech7.mid',
+'../assets/audio_media/bach_midi/organ/catech8.mid',
+'../assets/audio_media/bach_midi/organ/catech9.mid',
+'../assets/audio_media/bach_midi/organ/catechor.mid',
+'../assets/audio_media/bach_midi/organ/orgel19.mid',
+'../assets/audio_media/bach_midi/organ/passac.mid',
+'../assets/audio_media/bach_midi/organ/prefug1.mid',
+'../assets/audio_media/bach_midi/organ/prefug2.mid',
+'../assets/audio_media/bach_midi/organ/prefug3.mid',
+'../assets/audio_media/bach_midi/organ/prefug4.mid',
+'../assets/audio_media/bach_midi/organ/prefug5.mid',
+'../assets/audio_media/bach_midi/organ/prefug6.mid',
+'../assets/audio_media/bach_midi/organ/prefug7.mid',
+'../assets/audio_media/bach_midi/organ/prefug8.mid',
+'../assets/audio_media/bach_midi/organ/schub5.mid',
+'../assets/audio_media/bach_midi/organ/schub6.mid',
+'../assets/audio_media/bach_midi/organ/toccata1.mid',
+'../assets/audio_media/bach_midi/organ/toccata2.mid',
+'../assets/audio_media/bach_midi/organ/trio3a.mid',
+'../assets/audio_media/bach_midi/organ/trio3b.mid',
+'../assets/audio_media/bach_midi/organ/trio3c.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_a.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_b.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_c.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_d.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_e.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_f.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_g.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_h.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_i.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_j.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_k.mid',
+'../assets/audio_media/bach_midi/organcho/bsgjg_l.mid',
+'../assets/audio_media/bach_midi/partitas/all1.mid',
+'../assets/audio_media/bach_midi/partitas/all2.mid',
+'../assets/audio_media/bach_midi/partitas/cap2.mid',
+'../assets/audio_media/bach_midi/partitas/cou1.mid',
+'../assets/audio_media/bach_midi/partitas/cou2.mid',
+'../assets/audio_media/bach_midi/partitas/gig1.mid',
+'../assets/audio_media/bach_midi/partitas/men1.mid',
+'../assets/audio_media/bach_midi/partitas/pre1.mid',
+'../assets/audio_media/bach_midi/partitas/ron2.mid',
+'../assets/audio_media/bach_midi/partitas/sar1.mid',
+'../assets/audio_media/bach_midi/partitas/sar2.mid',
+'../assets/audio_media/bach_midi/partitas/sin2.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon1.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon10.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon11.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon12.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon13.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon14.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon15.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon2.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon3.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon4.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon5.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon6.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon7.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon8.mid',
+'../assets/audio_media/bach_midi/sinfon/sinfon9.mid',
+'../assets/audio_media/bach_midi/suites/airgstr4.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue1.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue10.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue11.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue12.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue13.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue14.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue15.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue16.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue17.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue18.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue19.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue2.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue20.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue21.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue22.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue23.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue24.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue3.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue4.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue5.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue6.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue7.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue8.mid',
+'../assets/audio_media/bach_midi/wtcbki/fugue9.mid',
+'../assets/audio_media/bach_midi/wtcbki/prelude1.mid',
+'../assets/audio_media/bach_midi/wtcbki/prelude2.mid',
+'../assets/audio_media/bach_midi/wtcbki/prelude3.mid',
+'../assets/audio_media/bach_midi/wtcbki/prelude4.mid',
+'../assets/audio_media/bach_midi/wtcbki/prelude5.mid',
+'../assets/audio_media/bach_midi/wtcbki/prelude6.mid',
+'../assets/audio_media/bach_midi/wtcbki/prelude7.mid',
+'../assets/audio_media/bach_midi/wtcbki/prelude8.mid',
+'../assets/audio_media/bach_midi/wtcbki/prelude9.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue1.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue10.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue11.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue12.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue2.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue3.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue4.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue5.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue6.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue7.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue8.mid',
+'../assets/audio_media/bach_midi/wtcbkii/fugue9.mid',
+'../assets/audio_media/bach_midi/wtcbkii/prelude1.mid',
+'../assets/audio_media/bach_midi/wtcbkii/prelude2.mid',
+'../assets/audio_media/bach_midi/wtcbkii/prelude3.mid',
+'../assets/audio_media/bach_midi/wtcbkii/prelude4.mid',
+'../assets/audio_media/bach_midi/wtcbkii/prelude5.mid',
+'../assets/audio_media/bach_midi/wtcbkii/prelude6.mid',
+'../assets/audio_media/bach_midi/wtcbkii/prelude7.mid',
+'../assets/audio_media/bach_midi/wtcbkii/prelude8.mid',
+'../assets/audio_media/bach_midi/wtcbkii/prelude9.mid',
+];
+
+const INSTRUMENTS = [
+    ['acoustic_grand_piano',  'Grand Piano'],
+    ['harpsichord',           'Harpsichord'],
+    ['electric_piano_1',      'Electric Piano'],
+    ['vibraphone',            'Vibraphone'],
+    ['marimba',               'Marimba'],
+    ['acoustic_guitar_nylon', 'Nylon Guitar'],
+    ['flute',                 'Flute'],
+    ['clarinet',              'Clarinet'],
+    ['violin',                'Violin'],
+    ['cello',                 'Cello'],
+    ['oboe',                  'Oboe'],
+    ['church_organ',          'Church Organ'],
+];
+
+const FOLDER_NAMES = {
+    aof: 'Art of Fugue', brandenb: 'Brandenburg Concertos',
+    cantatas: 'Cantatas', cellosui: 'Cello Suites',
+    chorales: 'Chorales', fugues: 'Fugues',
+    gold: 'Goldberg Variations', invent: 'Inventions',
+    organ: 'Organ Works', organcho: 'Organ Chorales',
+    partitas: 'Partitas', sinfon: 'Sinfonias',
+    suites: 'Suites', wtcbki: 'WTC Book I', wtcbkii: 'WTC Book II',
+};
+
+/* ─────────────────────────────────────────────────────── DOM ── */
+const $           = id => document.getElementById(id);
+const audioDot    = $('audio-dot');
+const audioLbl    = $('audio-label');
+const npCollection= $('np-collection');
+const npTitle     = $('np-title');
+const infoInstr   = $('info-instr');
+const measureLbl  = $('measure-label');
+const statusEl    = $('status');
+const scoreWrap   = $('score-container');
+const scoreLoading= $('score-loading');
+const timeCurr    = $('time-curr');
+const timeTotal   = $('time-total');
+const slTimeline  = $('sl-timeline');
+const slTempo     = $('sl-tempo');
+const tempoVal    = $('tempo-val');
+const btnPlayPause= $('btn-playpause');
+const btnRestart  = $('btn-restart');
+const btnShufInstr= $('btn-shuffle-instr');
+const btnShufPiece= $('btn-shuffle-piece');
+
+/* ─────────────────────────────────────────────────────── state ── */
+let ac           = null;
+let masterGain   = null;
+let instrument   = null;
+let instrName    = '';
+
+let allNotes     = [];   // {ticks, durationTicks, midi, velocity}
+let tempoMap     = [];   // {startTick, endTick, secsPerTick, secAtStart}
+let timeSig      = { num: 4, den: 4 };
+let ppq          = 480;
+let measureTicks = 0;
+let totalTicks   = 0;
+let totalSec     = 0;
+let measures     = [];   // {startTick, trebleNotes:[], bassNotes:[]}
+
+let isPlaying      = false;
+let isScrubbing    = false;
+let currentTick    = 0;
+let playStartAcTime= 0;
+let playStartSec   = 0;   // MIDI seconds at playback start
+let schedulerIdx   = 0;
+let schedulerTimer = null;
+let rafId          = null;
+let lastMeasureIdx = -1;
+let tempoScale     = 1.0;
+
+/* ─────────────────────────────────────────────────────── MIDI parser ── */
+function parseMidi(buf) {
+    const u8 = new Uint8Array(buf);
+    let p = 0;
+    const r8  = () => u8[p++];
+    const r16 = () => { const v = (u8[p]<<8)|u8[p+1]; p+=2; return v; };
+    const r32 = () => { const v = ((u8[p]<<24)|(u8[p+1]<<16)|(u8[p+2]<<8)|u8[p+3])>>>0; p+=4; return v; };
+    const rVL = () => { let v=0,b; do { b=r8(); v=(v<<7)|(b&0x7F); } while(b&0x80); return v; };
+
+    p += 4; r32(); // MThd + length
+    const fmt = r16();
+    const nTracks = r16();
+    const rawPpq = r16();
+    const parsedPpq = rawPpq & 0x7FFF;
+
+    const tempos   = [{ tick:0, uspb:500000 }];
+    const timeSigs = [{ tick:0, num:4, den:4 }];
+    const notes    = [];
+
+    for (let t = 0; t < nTracks; t++) {
+        if (p >= u8.length) break;
+        if (u8[p]!==0x4D||u8[p+1]!==0x54||u8[p+2]!==0x72||u8[p+3]!==0x6B) { p++; t--; continue; }
+        p += 4;
+        const trackLen = r32();
+        const trackEnd = p + trackLen;
+        let tick = 0, running = 0;
+        const active = {};
+
+        while (p < trackEnd) {
+            tick += rVL();
+            let ev = u8[p];
+            if (ev & 0x80) { if (ev < 0xF0) running = ev; p++; }
+            else            { ev = running; }
+            const type = ev & 0xF0;
+
+            if (type === 0x90 || type === 0x80) {
+                const note = r8(), vel = r8();
+                if (type === 0x90 && vel > 0) {
+                    active[note] = { tick, vel };
+                } else if (active[note]) {
+                    notes.push({ ticks: active[note].tick, durationTicks: tick - active[note].tick || parsedPpq/4, midi: note, velocity: active[note].vel / 127 });
+                    delete active[note];
+                }
+            } else if (type === 0xA0 || type === 0xB0 || type === 0xE0) { r8(); r8(); }
+            else if   (type === 0xC0 || type === 0xD0)                  { r8(); }
+            else if (ev === 0xFF) {
+                const mt = r8(), ml = rVL();
+                if (mt === 0x51 && t === 0) {
+                    tempos.push({ tick, uspb: (u8[p]<<16)|(u8[p+1]<<8)|u8[p+2] });
+                } else if (mt === 0x58 && t === 0) {
+                    timeSigs.push({ tick, num: u8[p], den: 1 << u8[p+1] });
+                }
+                p += ml;
+            } else if (ev === 0xF0 || ev === 0xF7) {
+                p += rVL();
+            } else { p = trackEnd; break; }
+        }
+        for (const [note, d] of Object.entries(active))
+            notes.push({ ticks: d.tick, durationTicks: tick - d.tick || parsedPpq/4, midi:+note, velocity: d.vel/127 });
+        p = trackEnd;
+    }
+
+    notes.sort((a,b) => a.ticks - b.ticks || a.midi - b.midi);
+    return { ppq: parsedPpq, tempos, timeSigs: timeSigs.slice(-1), notes };
+}
+
+/* ─────────────────────────────────────────────────────── tempo utils ── */
+function buildTempoMap(tempos, ppq) {
+    const map = [];
+    let sec = 0;
+    for (let i = 0; i < tempos.length; i++) {
+        const spt = tempos[i].uspb / 1e6 / ppq;
+        const end = i < tempos.length-1 ? tempos[i+1].tick : Infinity;
+        map.push({ startTick: tempos[i].tick, endTick: end, secsPerTick: spt, secAtStart: sec });
+        if (end !== Infinity) sec += (end - tempos[i].tick) * spt;
+    }
+    return map;
+}
+
+function ticksToSec(tick, map) {
+    for (let i = map.length-1; i >= 0; i--)
+        if (tick >= map[i].startTick)
+            return map[i].secAtStart + (tick - map[i].startTick) * map[i].secsPerTick;
+    return 0;
+}
+
+function secToTick(sec, map) {
+    for (let i = map.length-1; i >= 0; i--)
+        if (sec >= map[i].secAtStart)
+            return map[i].startTick + (sec - map[i].secAtStart) / map[i].secsPerTick;
+    return 0;
+}
+
+function fmtTime(sec) {
+    const s = Math.max(0, sec);
+    return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
+}
+
+/* ─────────────────────────────────────────────────────── piece loading ── */
+function pieceLabel(path) {
+    const parts = path.split('/');
+    const folder = parts[parts.length - 2];
+    const file   = parts[parts.length - 1].replace('.mid','');
+    const col    = FOLDER_NAMES[folder] || folder;
+    const title  = file.replace(/([a-z])(\d+)/g, '$1 $2')
+                       .replace(/^./, c => c.toUpperCase())
+                       .replace(/_/g,' ');
+    return { col, title };
+}
+
+async function loadPiece(path) {
+    stopPlayback(false);
+    const wasPlaying = isPlaying;
+    isPlaying = false;
+
+    const { col, title } = pieceLabel(path);
+    npCollection.textContent = col;
+    npTitle.textContent      = title;
+    statusEl.textContent     = 'loading…';
+    scoreLoading.textContent = 'parsing…';
+    scoreLoading.style.display = 'flex';
+    scoreWrap.innerHTML = '';
+
+    slTimeline.disabled    = true;
+    btnPlayPause.disabled  = true;
+    btnRestart.disabled    = true;
+    btnShufPiece.disabled  = true;
+    btnShufInstr.disabled  = true;
+    updateDot('', '');
+
+    try {
+        await ac.resume();
+        const resp = await fetch(path);
+        if (!resp.ok) throw new Error('fetch failed');
+        const buf  = await resp.arrayBuffer();
+        const midi = parseMidi(buf);
+
+        ppq        = midi.ppq;
+        allNotes   = midi.notes;
+        timeSig    = midi.timeSigs[0];
+        tempoMap   = buildTempoMap(midi.tempos, ppq);
+        measureTicks = ppq * timeSig.num * (4 / timeSig.den);
+        totalTicks   = allNotes.reduce((m,n) => Math.max(m, n.ticks + n.durationTicks), 0);
+        totalSec     = ticksToSec(totalTicks, tempoMap);
+
+        // Build measures
+        const nMeasures = Math.ceil(totalTicks / measureTicks) + 1;
+        measures = Array.from({ length: nMeasures }, (_,i) => ({
+            startTick: i * measureTicks,
+            trebleNotes: [],
+            bassNotes:   [],
+        }));
+        for (const n of allNotes) {
+            const mi = Math.floor(n.ticks / measureTicks);
+            if (mi < measures.length) {
+                const m = measures[mi];
+                const entry = { tickInMeasure: n.ticks - m.startTick, durationTicks: n.durationTicks, midi: n.midi };
+                if (n.midi >= 60) m.trebleNotes.push(entry);
+                else              m.bassNotes.push(entry);
+            }
+        }
+
+        currentTick  = 0;
+        lastMeasureIdx = -1;
+        timeTotal.textContent = fmtTime(totalSec);
+        slTimeline.value = 0;
+        statusEl.textContent = timeSig.num + '/' + timeSig.den + ' · ' + allNotes.length + ' notes · ' + fmtTime(totalSec);
+        scoreLoading.style.display = 'none';
+        renderScore(0);
+
+        btnPlayPause.disabled = false;
+        btnRestart.disabled   = false;
+        slTimeline.disabled   = false;
+        btnShufPiece.disabled = false;
+        btnShufInstr.disabled = false;
+        updateDot('ready', 'ready');
+
+        // Auto-play
+        startPlayback();
+    } catch(e) {
+        statusEl.textContent = 'load failed — ' + e.message;
+        scoreLoading.textContent = 'load failed';
+        btnShufPiece.disabled = false;
+        btnShufInstr.disabled = false;
+    }
+}
+
+/* ─────────────────────────────────────────────────────── instrument ── */
+async function loadInstrument(entry) {
+    instrName = entry[1];
+    infoInstr.textContent = instrName;
+    statusEl.textContent  = 'loading ' + instrName + '…';
+
+    instrument = await Soundfont.instrument(ac, entry[0], {
+        soundfont: 'MusyngKite',
+        format: 'mp3',
+        destination: masterGain,
+    });
+    statusEl.textContent = isPlaying ? 'playing' : 'ready';
+}
+
+/* ─────────────────────────────────────────────────────── playback ── */
+function startPlayback() {
+    if (!allNotes.length || !instrument) return;
+    playStartAcTime = ac.currentTime;
+    playStartSec    = ticksToSec(currentTick, tempoMap);
+    schedulerIdx    = allNotes.findIndex(n => n.ticks >= currentTick);
+    if (schedulerIdx < 0) schedulerIdx = allNotes.length;
+    isPlaying = true;
+    btnPlayPause.textContent = '⏸';
+    updateDot('playing', 'playing');
+    schedule();
+    if (!rafId) rafId = requestAnimationFrame(rafLoop);
+}
+
+function pausePlayback() {
+    isPlaying = false;
+    clearTimeout(schedulerTimer);
+    btnPlayPause.textContent = '▶';
+    updateDot('ready', 'paused');
+}
+
+function stopPlayback(resetPos) {
+    isPlaying = false;
+    clearTimeout(schedulerTimer);
+    if (resetPos) { currentTick = 0; slTimeline.value = 0; timeCurr.textContent = '0:00'; }
+    btnPlayPause.textContent = '▶';
+}
+
+function schedule() {
+    if (!isPlaying || !instrument) return;
+    const now    = ac.currentTime;
+    const ahead  = now + 0.35;
+
+    while (schedulerIdx < allNotes.length) {
+        const n       = allNotes[schedulerIdx];
+        const noteMs  = ticksToSec(n.ticks, tempoMap);
+        const noteAt  = playStartAcTime + (noteMs - playStartSec) / tempoScale;
+        if (noteAt > ahead) break;
+        if (noteAt >= now - 0.05) {
+            const durMs = ticksToSec(n.ticks + n.durationTicks, tempoMap) - noteMs;
+            instrument.play(n.midi, noteAt, { duration: Math.max(0.05, durMs / tempoScale * 0.93), gain: n.velocity });
+        }
+        schedulerIdx++;
+    }
+
+    if (schedulerIdx >= allNotes.length) {
+        const lastN = allNotes[allNotes.length - 1];
+        const endMs = ticksToSec(lastN.ticks + lastN.durationTicks, tempoMap);
+        const endAt = playStartAcTime + (endMs - playStartSec) / tempoScale;
+        setTimeout(() => { if (isPlaying) { isPlaying = false; btnPlayPause.textContent = '▶'; updateDot('ready','done'); } }, Math.max(0,(endAt - ac.currentTime + 0.3))*1000);
+        return;
+    }
+    schedulerTimer = setTimeout(schedule, 30);
+}
+
+function seekTo(tick) {
+    tick = Math.max(0, Math.min(tick, totalTicks));
+    const wasPlaying = isPlaying;
+    clearTimeout(schedulerTimer);
+    isPlaying = false;
+
+    masterGain.gain.cancelScheduledValues(ac.currentTime);
+    masterGain.gain.setTargetAtTime(0, ac.currentTime, 0.015);
+
+    setTimeout(() => {
+        currentTick = tick;
+        if (wasPlaying) {
+            playStartAcTime = ac.currentTime;
+            playStartSec    = ticksToSec(tick, tempoMap);
+            schedulerIdx    = allNotes.findIndex(n => n.ticks >= tick);
+            if (schedulerIdx < 0) schedulerIdx = allNotes.length;
+            isPlaying = true;
+            masterGain.gain.setTargetAtTime(1, ac.currentTime, 0.05);
+            schedule();
+        } else {
+            masterGain.gain.setTargetAtTime(1, ac.currentTime, 0.05);
+        }
+    }, 80);
+}
+
+/* ─────────────────────────────────────────────────────── RAF loop ── */
+function rafLoop() {
+    rafId = null;
+    if (allNotes.length === 0) { rafId = requestAnimationFrame(rafLoop); return; }
+
+    if (isPlaying) {
+        const elapsed = (ac.currentTime - playStartAcTime) * tempoScale;
+        const midiSec = playStartSec + elapsed;
+        currentTick   = Math.min(secToTick(midiSec, tempoMap), totalTicks);
+    }
+
+    if (!isScrubbing) {
+        const frac = totalSec > 0 ? ticksToSec(currentTick, tempoMap) / totalSec : 0;
+        slTimeline.value = frac * 10000;
+    }
+    timeCurr.textContent = fmtTime(ticksToSec(currentTick, tempoMap));
+
+    const mi = Math.floor(currentTick / measureTicks);
+    if (mi !== lastMeasureIdx) {
+        lastMeasureIdx = mi;
+        measureLbl.textContent = 'measure ' + (mi + 1) + ' / ' + measures.length;
+        renderScore(mi);
+    }
+
+    rafId = requestAnimationFrame(rafLoop);
+}
+
+/* ─────────────────────────────────────────────────────── VexFlow score ── */
+const VEX_NAMES = ['c','c#','d','d#','e','f','f#','g','g#','a','a#','b'];
+function midiToKey(midi) { return VEX_NAMES[midi%12] + '/' + (Math.floor(midi/12)-1); }
+
+const DURS = [
+    {q:4,    s:'w',   dot:false},
+    {q:3,    s:'h',   dot:true },
+    {q:2,    s:'h',   dot:false},
+    {q:1.5,  s:'q',   dot:true },
+    {q:1,    s:'q',   dot:false},
+    {q:0.75, s:'8',   dot:true },
+    {q:0.5,  s:'8',   dot:false},
+    {q:0.375,s:'16',  dot:true },
+    {q:0.25, s:'16',  dot:false},
+    {q:0.125,s:'32',  dot:false},
+];
+
+function quantDur(ticks) {
+    const q = ticks / ppq;
+    let best = DURS[4], bd = Infinity;
+    for (const d of DURS) { const diff = Math.abs(d.q - q); if (diff < bd) { bd = diff; best = d; } }
+    return best;
+}
+
+function buildVoice(notes, clef) {
+    const VF = Vex.Flow;
+    const restKey = clef === 'treble' ? 'b/4' : 'b/2';
+    const tol     = Math.max(1, ppq / 8);
+    notes = [...notes].sort((a,b) => a.tickInMeasure - b.tickInMeasure);
+    const result = [];
+    let cursor = 0, i = 0;
+    const mLen = measureTicks;
+
+    while (cursor < mLen - tol) {
+        // collect notes at current cursor
+        const here = [];
+        while (i < notes.length && notes[i].tickInMeasure <= cursor + tol) {
+            if (notes[i].tickInMeasure >= cursor - tol) here.push(notes[i]);
+            i++;
+        }
+        const nextTick = i < notes.length ? notes[i].tickInMeasure : mLen;
+
+        if (here.length === 0) {
+            const gap = Math.min(nextTick - cursor, mLen - cursor);
+            const d   = quantDur(Math.max(gap, ppq / 4));
+            const dt  = Math.min(d.q * ppq, mLen - cursor);
+            try {
+                const r = new VF.StaveNote({ clef, keys:[restKey], duration: d.s+'r' });
+                result.push(r);
+            } catch(_) {}
+            cursor += dt;
+        } else {
+            // deduplicate keys, sort low→high
+            const seen = new Set();
+            const keys = here
+                .map(n => midiToKey(n.midi))
+                .filter(k => { if (seen.has(k)) return false; seen.add(k); return true; })
+                .sort((a,b) => {
+                    const pa = a.split('/'), pb = b.split('/');
+                    return (+pa[1]*12 + VEX_NAMES.indexOf(pa[0])) - (+pb[1]*12 + VEX_NAMES.indexOf(pb[0]));
+                });
+            const maxDur = Math.max(...here.map(n => n.durationTicks));
+            const d = quantDur(Math.min(maxDur, mLen - cursor));
+            const dt = Math.min(d.q * ppq, mLen - cursor);
+            try {
+                const note = new VF.StaveNote({ clef, keys, duration: d.s });
+                keys.forEach((k, idx) => {
+                    if (k.includes('#')) note.addAccidental(idx, new VF.Accidental('#'));
+                });
+                if (d.dot) for (let di = 0; di < keys.length; di++) note.addDot(di);
+                result.push(note);
+            } catch(_) {}
+            cursor += dt;
+        }
+    }
+
+    if (result.length === 0) {
+        try { result.push(new VF.StaveNote({ clef, keys:[restKey], duration:'wr' })); } catch(_) {}
+    }
+    return result;
+}
+
+function renderScore(curMI) {
+    if (typeof Vex === 'undefined' || measures.length === 0) return;
+    const VF = Vex.Flow || Vex;
+    if (!VF || !VF.Renderer) return;
+
+    scoreWrap.innerHTML = '';
+    const containerW = scoreWrap.parentElement ? scoreWrap.parentElement.clientWidth : 0;
+    const W    = Math.max((containerW || 760) - 20, 300);
+    const H    = 200;
+    const COLS = 4;
+    const firstW  = Math.floor(W * 0.29);
+    const otherW  = Math.floor((W - firstW) / (COLS - 1));
+    const TREBLE_Y = 18;
+    const BASS_Y   = 110;
+
+    let renderer;
+    try {
+        renderer = new VF.Renderer(scoreWrap, VF.Renderer.Backends.SVG);
+        renderer.resize(W, H);
+    } catch(e) { return; }
+    const ctx = renderer.getContext();
+    ctx.setFont('Times New Roman', 10, '');
+    ctx.setFillStyle('#222');
+    ctx.setStrokeStyle('#222');
+
+    // highlight box for current measure (col 1) — draw before staves
+    const hlX = firstW;
+    const hlW = otherW;
+    ctx.save();
+    ctx.setFillStyle('rgba(88,166,255,0.12)');
+    ctx.fillRect(hlX, 0, hlW, H);
+    ctx.setFillStyle('#222');
+    ctx.restore();
+
+    const staveXs = [0, firstW, firstW + otherW, firstW + 2*otherW];
+    const staveWs = [firstW, otherW, otherW, otherW];
+
+    let trebleStaves = [], bassStaves = [];
+
+    for (let col = 0; col < COLS; col++) {
+        const mIdx = curMI - 1 + col;
+        const x = staveXs[col], sw = staveWs[col];
+
+        const ts = new VF.Stave(x, TREBLE_Y, sw);
+        const bs = new VF.Stave(x, BASS_Y, sw);
+        ts.setContext(ctx);
+        bs.setContext(ctx);
+
+        if (col === 0) {
+            ts.addClef('treble').addTimeSignature(timeSig.num + '/' + timeSig.den);
+            bs.addClef('bass').addTimeSignature(timeSig.num + '/' + timeSig.den);
+        }
+
+        // measure number label
+        if (mIdx >= 0 && mIdx < measures.length) {
+            ctx.save();
+            ctx.setFillStyle('#aaa');
+            ctx.setFont('monospace', 8, '');
+            ctx.fillText('m' + (mIdx+1), x + 3, TREBLE_Y - 4);
+            ctx.setFillStyle('#222');
+            ctx.restore();
+        }
+
+        ts.draw(); bs.draw();
+        trebleStaves.push(ts); bassStaves.push(bs);
+
+        // brace + bar on first column
+        if (col === 0) {
+            try {
+                new VF.StaveConnector(ts, bs).setType(VF.StaveConnector.type.BRACE).setContext(ctx).draw();
+                new VF.StaveConnector(ts, bs).setType(VF.StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
+            } catch(_) {}
+        }
+        // right barline on last
+        if (col === COLS-1) {
+            try { new VF.StaveConnector(ts, bs).setType(VF.StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw(); } catch(_) {}
+        }
+
+        if (mIdx < 0 || mIdx >= measures.length) continue;
+
+        const m = measures[mIdx];
+        const fmtW = sw - (col === 0 ? 56 : 14);
+
+        for (const [notes, clef, stave] of [[m.trebleNotes,'treble',ts],[m.bassNotes,'bass',bs]]) {
+            try {
+                const vns = buildVoice(notes, clef);
+                if (!vns.length) continue;
+                const voice = new VF.Voice({ num_beats: timeSig.num, beat_value: timeSig.den });
+                if (typeof voice.setStrict === 'function') voice.setStrict(false);
+                else if (typeof voice.setMode === 'function') voice.setMode(2);
+                voice.addTickables(vns);
+                new VF.Formatter().joinVoices([voice]).format([voice], fmtW);
+                voice.draw(ctx, stave);
+            } catch(_) {}
+        }
+    }
+}
+
+/* ─────────────────────────────────────────────────────── audio badge ── */
+function updateDot(cls, label) {
+    audioDot.className   = 'dot ' + cls;
+    audioLbl.textContent = label || '';
+}
+
+/* ─────────────────────────────────────────────────────── tempo slider ── */
+function slToScale(v) { return 0.4 * Math.pow(2.5 / 0.4, v / 1000); } // 0.4× → 2.5×
+
+function updateTempo() {
+    const oldScale = tempoScale;
+    const scale    = slToScale(+slTempo.value);
+    tempoVal.textContent = '× ' + scale.toFixed(2);
+    if (isPlaying) {
+        // Re-anchor to current position before changing scale
+        const midiSec = playStartSec + (ac.currentTime - playStartAcTime) * oldScale;
+        currentTick    = Math.min(secToTick(midiSec, tempoMap), totalTicks);
+        tempoScale     = scale;
+        playStartAcTime= ac.currentTime;
+        playStartSec   = ticksToSec(currentTick, tempoMap);
+        clearTimeout(schedulerTimer);
+        schedulerIdx   = allNotes.findIndex(n => n.ticks >= currentTick);
+        if (schedulerIdx < 0) schedulerIdx = allNotes.length;
+        masterGain.gain.setTargetAtTime(0, ac.currentTime, 0.01);
+        setTimeout(() => { masterGain.gain.setTargetAtTime(1, ac.currentTime, 0.05); schedule(); }, 60);
+    } else {
+        tempoScale = scale;
+    }
+}
+
+/* ─────────────────────────────────────────────────────── events ── */
+btnPlayPause.addEventListener('click', async () => {
+    await ac.resume();
+    if (isPlaying) pausePlayback();
+    else           startPlayback();
+});
+
+btnRestart.addEventListener('click', async () => {
+    await ac.resume();
+    seekTo(0);
+    if (!isPlaying) { setTimeout(() => startPlayback(), 90); }
+});
+
+btnShufPiece.addEventListener('click', async () => {
+    await ac.resume();
+    const path = MIDI_FILES[Math.floor(Math.random() * MIDI_FILES.length)];
+    await loadPiece(path);
+});
+
+btnShufInstr.addEventListener('click', async () => {
+    await ac.resume();
+    const entry = INSTRUMENTS[Math.floor(Math.random() * INSTRUMENTS.length)];
+    await loadInstrument(entry);
+    infoInstr.textContent = entry[1];
+});
+
+// Timeline scrub
+slTimeline.addEventListener('mousedown', () => { isScrubbing = true; });
+slTimeline.addEventListener('touchstart', () => { isScrubbing = true; });
+slTimeline.addEventListener('input', () => {
+    const frac = +slTimeline.value / 10000;
+    const targetSec = frac * totalSec;
+    currentTick = Math.min(secToTick(targetSec, tempoMap), totalTicks);
+    timeCurr.textContent = fmtTime(targetSec);
+    const mi = Math.floor(currentTick / measureTicks);
+    if (mi !== lastMeasureIdx) { lastMeasureIdx = mi; renderScore(mi); }
+});
+slTimeline.addEventListener('change', () => {
+    isScrubbing = false;
+    seekTo(currentTick);
+});
+
+// Tempo slider
+slTempo.addEventListener('input', updateTempo);
+
+// Keyboard
+document.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space') { e.preventDefault(); btnPlayPause.click(); }
+    if (e.code === 'KeyR')  { e.preventDefault(); btnRestart.click(); }
+    const seekDelta = secToTick(5, tempoMap);  // 5 MIDI-seconds worth of ticks
+    if (e.code === 'ArrowRight') { e.preventDefault(); seekTo(currentTick + seekDelta); }
+    if (e.code === 'ArrowLeft')  { e.preventDefault(); seekTo(currentTick - seekDelta); }
+});
+
+// Resize
+window.addEventListener('resize', () => { if (measures.length) renderScore(lastMeasureIdx >= 0 ? lastMeasureIdx : 0); });
+
+/* ─────────────────────────────────────────────────────── init ── */
+async function init() {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ac.createGain();
+    masterGain.connect(ac.destination);
+
+    updateTempo();
+    updateDot('', 'initialising…');
+
+    // Load a random instrument and piece together
+    const instrEntry = INSTRUMENTS[Math.floor(Math.random() * INSTRUMENTS.length)];
+    infoInstr.textContent = instrEntry[1];
+    instrName = instrEntry[1];
+
+    statusEl.textContent = 'loading ' + instrEntry[1] + '…';
+    instrument = await Soundfont.instrument(ac, instrEntry[0], {
+        soundfont: 'MusyngKite',
+        format: 'mp3',
+        destination: masterGain,
+    });
+
+    btnShufInstr.disabled = false;
+    btnShufPiece.disabled = false;
+    updateDot('ready', 'ready');
+    statusEl.textContent = 'press shuffle to load a piece';
+
+    rafId = requestAnimationFrame(rafLoop);
+
+    // Auto-load a random piece
+    const path = MIDI_FILES[Math.floor(Math.random() * MIDI_FILES.length)];
+    await loadPiece(path);
+}
+
+init().catch(e => { statusEl.textContent = 'init failed: ' + e.message; });
+</script>
+</body>
+</html>

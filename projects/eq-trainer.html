@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EQ Ear Training — Nathan Howland</title>
+    <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+    <style>
+        :root {
+            --bg:           #0d1117;
+            --bg-alt:       #161b27;
+            --text:         #e6edf3;
+            --text-muted:   #8b949e;
+            --accent:       #58a6ff;
+            --accent-light: #79b8ff;
+            --border:       #30363d;
+            --green:        #3fb950;
+            --red:          #f85149;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            height: 56px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(13, 17, 23, 0.94);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .back-link {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .back-link:hover { color: var(--accent); }
+
+        .audio-badge {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .audio-badge .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--border);
+            transition: background 0.3s;
+        }
+        .audio-badge .dot.ready   { background: var(--green);  box-shadow: 0 0 6px var(--green); }
+        .audio-badge .dot.playing { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+
+        .card {
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 36px 32px 28px;
+            width: 100%;
+            max-width: 560px;
+            text-align: center;
+        }
+
+        .card-title {
+            font-size: 0.9375rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .card-sub {
+            font-size: 0.75rem;
+            color: var(--border);
+            margin-bottom: 28px;
+        }
+
+        .score-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            padding: 10px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8125rem;
+        }
+        .score-label { color: var(--text-muted); }
+        .score-val   { color: var(--accent); font-weight: 700; font-size: 1rem; }
+        .best-val    { color: var(--text-muted); }
+        .best-val span { color: var(--accent-light); }
+
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            padding: 8px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .info-val { color: var(--accent-light); }
+
+        #status {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            min-height: 1.2em;
+            margin-bottom: 14px;
+        }
+
+        .play-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-play {
+            flex: 1;
+            max-width: 200px;
+            padding: 11px 0;
+            background: var(--accent);
+            color: #0d1117;
+            border: 2px solid var(--accent);
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 0.9375rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-play:hover:not(:disabled) {
+            background: var(--accent-light);
+            border-color: var(--accent-light);
+            box-shadow: 0 0 18px rgba(88,166,255,0.35);
+        }
+        .btn-play:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        .btn-icon {
+            padding: 11px 16px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1.5px solid var(--border);
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-icon:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+        .btn-icon:disabled { opacity: 0.25; cursor: not-allowed; }
+
+        .btn-ab {
+            padding: 11px 14px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1.5px solid var(--border);
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-ab:disabled { opacity: 0.25; cursor: not-allowed; }
+        .btn-ab.eq-on {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .btn-ab.eq-on:hover:not(:disabled) {
+            background: rgba(88,166,255,0.08);
+        }
+        .btn-ab:not(.eq-on):hover:not(:disabled) {
+            border-color: var(--text-muted);
+            color: var(--text);
+        }
+
+        /* EQ display */
+        .eq-wrap {
+            margin-bottom: 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        #eq-canvas {
+            display: block;
+            width: 100%;
+            height: 160px;
+        }
+
+        .eq-legend {
+            display: flex;
+            gap: 18px;
+            justify-content: center;
+            font-size: 0.6875rem;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+        }
+        .leg-line {
+            display: inline-block;
+            width: 18px; height: 2px;
+            border-radius: 1px;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+
+        /* Sliders */
+        .sliders {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .sl-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sl-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            width: 34px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        input[type=range] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px; height: 15px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(88,166,255,0.45);
+            transition: background 0.12s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { background: var(--accent-light); }
+
+        .sl-val {
+            font-size: 0.75rem;
+            color: var(--accent);
+            width: 68px;
+            flex-shrink: 0;
+        }
+
+        #feedback {
+            font-size: 0.875rem;
+            font-weight: 700;
+            min-height: 1.4em;
+            margin-bottom: 12px;
+        }
+        #feedback.great { color: var(--green); }
+        #feedback.ok    { color: var(--accent-light); }
+        #feedback.poor  { color: var(--red); }
+
+        .btn-submit {
+            padding: 11px 28px;
+            background: transparent;
+            color: var(--accent);
+            border: 1.5px solid var(--accent);
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 0.9375rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        .btn-submit:hover:not(:disabled) {
+            background: rgba(88,166,255,0.1);
+            box-shadow: 0 0 14px rgba(88,166,255,0.2);
+        }
+        .btn-submit:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        .btn-next {
+            padding: 10px 28px;
+            background: transparent;
+            color: var(--accent);
+            border: 1.5px solid var(--accent);
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 0.9375rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: none;
+            margin-left: 10px;
+        }
+        .btn-next:hover {
+            background: rgba(88,166,255,0.1);
+            box-shadow: 0 0 14px rgba(88,166,255,0.2);
+        }
+
+        .hint {
+            margin-top: 18px;
+            font-size: 0.6875rem;
+            color: var(--border);
+            letter-spacing: 0.04em;
+        }
+
+        @media (max-width: 420px) {
+            .card { padding: 24px 14px 20px; }
+            .sl-val { width: 56px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <a href="../index.html" class="back-link">← nathanhowland.com</a>
+    <div class="audio-badge">
+        <div class="dot" id="audio-dot"></div>
+        <span id="audio-label">loading…</span>
+    </div>
+</header>
+
+<main>
+    <div class="card">
+        <p class="card-title">EQ Ear Training</p>
+        <p class="card-sub">find the hidden EQ cut</p>
+
+        <div class="score-bar">
+            <span class="score-label">avg score</span>
+            <span class="score-val" id="score-val">—</span>
+            <span class="best-val">best <span id="best-val">—</span></span>
+        </div>
+
+        <div class="info-bar">
+            <span>scale: <span class="info-val" id="info-scale">—</span></span>
+            <span>instrument: <span class="info-val" id="info-instr">—</span></span>
+        </div>
+
+        <div id="status">initialising audio…</div>
+
+        <div class="play-row">
+            <button class="btn-play" id="btn-play" disabled>▶ play</button>
+            <button class="btn-ab"   id="btn-ab"   disabled title="toggle A/B (b)">EQ</button>
+            <button class="btn-icon" id="btn-stop"  disabled title="stop">■</button>
+        </div>
+
+        <div class="eq-wrap">
+            <canvas id="eq-canvas"></canvas>
+        </div>
+        <div class="eq-legend">
+            <span><span class="leg-line" style="background:var(--accent)"></span>your filter</span>
+            <span id="legend-hidden" style="display:none">
+                <span class="leg-line" style="background:var(--green)"></span>hidden filter
+            </span>
+        </div>
+
+        <div class="sliders">
+            <div class="sl-row">
+                <span class="sl-label">freq</span>
+                <input type="range" id="sl-freq" min="0" max="1000" value="500">
+                <span class="sl-val" id="sv-freq"></span>
+            </div>
+            <div class="sl-row">
+                <span class="sl-label">Q</span>
+                <input type="range" id="sl-q" min="0" max="1000" value="450">
+                <span class="sl-val" id="sv-q"></span>
+            </div>
+            <div class="sl-row">
+                <span class="sl-label">gain</span>
+                <input type="range" id="sl-gain" min="0" max="1000" value="500">
+                <span class="sl-val" id="sv-gain"></span>
+            </div>
+        </div>
+
+        <div id="feedback"></div>
+
+        <button class="btn-submit" id="btn-submit" disabled>check answer</button>
+        <button class="btn-next"   id="btn-next">new round →</button>
+
+        <p class="hint">space · play / next &nbsp;|&nbsp; b · A/B &nbsp;|&nbsp; enter · submit</p>
+    </div>
+</main>
+
+<script>
+'use strict';
+
+/* ── Instruments ───────────────────────────────────────────── */
+const INSTRUMENTS = [
+    ['acoustic_grand_piano',  'Grand Piano'],
+    ['electric_piano_1',      'Electric Piano'],
+    ['vibraphone',            'Vibraphone'],
+    ['marimba',               'Marimba'],
+    ['acoustic_guitar_nylon', 'Nylon Guitar'],
+    ['flute',                 'Flute'],
+    ['clarinet',              'Clarinet'],
+    ['violin',                'Violin'],
+    ['trumpet',               'Trumpet'],
+    ['electric_guitar_clean', 'Clean Guitar'],
+];
+
+/* ── Scale data ────────────────────────────────────────────── */
+const MAJOR   = [0, 2, 4, 5, 7, 9, 11];
+const ROOTS   = [
+    { name: 'C major', midi: 60 },
+    { name: 'D major', midi: 62 },
+    { name: 'E major', midi: 64 },
+    { name: 'F major', midi: 65 },
+    { name: 'G major', midi: 67 },
+    { name: 'A major', midi: 69 },
+    { name: 'B major', midi: 71 },
+];
+
+/* ── EQ constants ──────────────────────────────────────────── */
+const FMIN     = 80;
+const FMAX     = 12000;
+const SAMPLES  = 512;
+const DB_MIN   = -28;
+const DB_MAX   = 6;
+
+/* ── State ─────────────────────────────────────────────────── */
+let ac          = null;
+let instrument  = null;
+let hiddenNode  = null;   // BiquadFilterNode in audio path
+let userNode    = null;   // BiquadFilterNode for display / scoring only
+let hiddenP     = null;   // { freq, q, gain } — revealed after submit
+let melody      = [];
+let bpm         = 90;
+let loopTimer   = null;
+let isPlaying   = false;
+let answered    = false;
+let audioReady  = false;
+let abActive    = true;   // true = EQ on, false = bypassed
+let scoreData   = { rounds: 0, sum: 0, best: null };
+
+/* ── DOM ───────────────────────────────────────────────────── */
+const $         = id => document.getElementById(id);
+const btnPlay   = $('btn-play');
+const btnAb     = $('btn-ab');
+const btnStop   = $('btn-stop');
+const btnSubmit = $('btn-submit');
+const btnNext   = $('btn-next');
+const statusEl  = $('status');
+const feedbackEl= $('feedback');
+const scoreEl   = $('score-val');
+const bestEl    = $('best-val');
+const audioDot  = $('audio-dot');
+const audioLbl  = $('audio-label');
+const infoScale = $('info-scale');
+const infoInstr = $('info-instr');
+const canvas    = $('eq-canvas');
+const cx        = canvas.getContext('2d');
+const legHidden = $('legend-hidden');
+const slFreq    = $('sl-freq');
+const slQ       = $('sl-q');
+const slGain    = $('sl-gain');
+const svFreq    = $('sv-freq');
+const svQ       = $('sv-q');
+const svGain    = $('sv-gain');
+
+/* ── Slider mappings ───────────────────────────────────────── */
+const slToFreq = v => FMIN * Math.pow(FMAX / FMIN, v / 1000);
+const slToQ    = v => 0.3  * Math.pow(12   / 0.3,  v / 1000);
+const slToGain = v => -24 * (1 - v / 1000);   // -24 → 0 dB
+
+function updateSliders() {
+    const f = slToFreq(+slFreq.value);
+    const q = slToQ(+slQ.value);
+    const g = slToGain(+slGain.value);
+
+    svFreq.textContent = f >= 1000 ? (f / 1000).toFixed(1) + ' kHz' : Math.round(f) + ' Hz';
+    svQ.textContent    = q.toFixed(2);
+    svGain.textContent = (g > 0 ? '+' : '−') + Math.abs(g).toFixed(1) + ' dB';
+
+    if (userNode) {
+        userNode.frequency.value = f;
+        userNode.Q.value         = q;
+        userNode.gain.value      = g;
+    }
+    drawEQ();
+}
+
+/* ── Boot ──────────────────────────────────────────────────── */
+async function initAudio() {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+
+    userNode = ac.createBiquadFilter();
+    userNode.type = 'peaking';
+
+    updateSliders();
+    audioReady = true;
+    btnPlay.disabled = false;
+    statusEl.textContent = 'press play to start a round';
+    setDot('ready', 'web audio · ready');
+    drawEQ();
+}
+
+function setDot(cls, label) {
+    audioDot.className  = 'dot ' + cls;
+    audioLbl.textContent = label;
+}
+
+/* ── New round ─────────────────────────────────────────────── */
+async function newRound() {
+    stopPlayback();
+    answered = false;
+    abActive = true;
+    feedbackEl.textContent = '';
+    feedbackEl.className   = '';
+    btnNext.style.display  = 'none';
+    btnSubmit.disabled     = true;
+    btnAb.disabled         = true;
+    btnAb.classList.add('eq-on');
+    legHidden.style.display = 'none';
+
+    // Random picks
+    const instrEntry = INSTRUMENTS[Math.floor(Math.random() * INSTRUMENTS.length)];
+    const rootEntry  = ROOTS[Math.floor(Math.random() * ROOTS.length)];
+    bpm = 80 + Math.floor(Math.random() * 25);
+
+    infoScale.textContent = rootEntry.name;
+    infoInstr.textContent = instrEntry[1];
+
+    // Build 2-octave note pool
+    const pool = [];
+    for (let oct = 0; oct < 2; oct++)
+        MAJOR.forEach(s => pool.push(rootEntry.midi + s + oct * 12));
+
+    // Generate 8-beat melody (mix of 1 and 2 beat notes)
+    melody = [];
+    let beats = 0;
+    while (beats < 8) {
+        const rem = 8 - beats;
+        const dur = rem >= 2 && Math.random() < 0.35 ? 2 : 1;
+        melody.push({ midi: pool[Math.floor(Math.random() * pool.length)], dur: Math.min(dur, rem) });
+        beats += melody[melody.length - 1].dur;
+    }
+
+    // Hidden peaking filter: freq, Q, gain all random
+    hiddenP = {
+        freq: slToFreq(100 + Math.random() * 800),
+        q:    slToQ(200 + Math.random() * 600),
+        gain: -(6 + Math.random() * 16),
+    };
+
+    statusEl.textContent = 'loading ' + instrEntry[1] + '…';
+    btnPlay.disabled = true;
+
+    try {
+        await ac.resume();
+
+        // Build audio chain: soundfont → hiddenNode → destination
+        hiddenNode = ac.createBiquadFilter();
+        hiddenNode.type = 'peaking';
+        hiddenNode.frequency.value = hiddenP.freq;
+        hiddenNode.Q.value         = hiddenP.q;
+        hiddenNode.gain.value      = hiddenP.gain;
+        hiddenNode.connect(ac.destination);
+
+        instrument = await Soundfont.instrument(ac, instrEntry[0], {
+            soundfont: 'MusyngKite',
+            format: 'mp3',
+            destination: hiddenNode,
+        });
+
+        isPlaying = true;
+        btnStop.disabled   = false;
+        btnSubmit.disabled = false;
+        btnPlay.disabled   = false;
+        btnAb.disabled     = false;
+        statusEl.textContent = 'listen · adjust the EQ to match the cut';
+        setDot('playing', 'playing');
+        scheduleLoop();
+    } catch (e) {
+        statusEl.textContent = 'load failed — check your connection';
+        btnPlay.disabled = false;
+        setDot('', 'error');
+    }
+}
+
+/* ── Melody scheduling ─────────────────────────────────────── */
+function scheduleLoop() {
+    if (!isPlaying || !instrument) return;
+    const beatSec = 60 / bpm;
+    let t = ac.currentTime + 0.08;
+    melody.forEach(n => {
+        instrument.play(n.midi, t, { duration: beatSec * n.dur * 0.88, gain: 1.0 });
+        t += beatSec * n.dur;
+    });
+    const totalSec = melody.reduce((s, n) => s + n.dur, 0) * beatSec;
+    loopTimer = setTimeout(scheduleLoop, (totalSec - 0.06) * 1000);
+}
+
+function stopPlayback() {
+    isPlaying = false;
+    clearTimeout(loopTimer);
+    if (hiddenNode) { try { hiddenNode.disconnect(); } catch (_) {} hiddenNode = null; }
+    btnStop.disabled = true;
+    btnAb.disabled   = true;
+    if (audioReady) setDot('ready', 'web audio · ready');
+}
+
+function toggleAB() {
+    if (!hiddenNode || answered) return;
+    abActive = !abActive;
+    const target = abActive ? hiddenP.gain : 0;
+    hiddenNode.gain.linearRampToValueAtTime(target, ac.currentTime + 0.02);
+    btnAb.classList.toggle('eq-on', abActive);
+    statusEl.textContent = abActive ? 'listen · adjust the EQ to match the cut' : 'A/B · hearing flat (no EQ)';
+}
+
+/* ── EQ drawing ────────────────────────────────────────────── */
+function freqToX(f, w) { return w * Math.log(f / FMIN) / Math.log(FMAX / FMIN); }
+function dbToY(db, h)  { return h * (1 - (db - DB_MIN) / (DB_MAX - DB_MIN)); }
+
+function getResp(node) {
+    const freqs = new Float32Array(SAMPLES);
+    for (let i = 0; i < SAMPLES; i++) freqs[i] = FMIN * Math.pow(FMAX / FMIN, i / (SAMPLES - 1));
+    const mag = new Float32Array(SAMPLES);
+    const ph  = new Float32Array(SAMPLES);
+    node.getFrequencyResponse(freqs, mag, ph);
+    return { freqs, mag };
+}
+
+function drawEQ(revealHidden = false) {
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth  || 496;
+    const cssH = 160;
+    const W = cssW, H = cssH;
+
+    if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+        canvas.width  = W * dpr;
+        canvas.height = H * dpr;
+        cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    cx.clearRect(0, 0, W, H);
+    cx.fillStyle = '#0d1117';
+    cx.fillRect(0, 0, W, H);
+
+    // Grid
+    cx.strokeStyle = '#1e242d';
+    cx.lineWidth   = 1;
+    cx.font        = '9px monospace';
+
+    [-24, -18, -12, -6, 0].forEach(db => {
+        const y = dbToY(db, H);
+        cx.strokeStyle = db === 0 ? '#2a3140' : '#1e242d';
+        cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke();
+        cx.fillStyle = '#3d4553';
+        cx.fillText(db + 'dB', 3, y - 2);
+    });
+
+    [100, 200, 500, 1000, 2000, 5000, 10000].forEach(f => {
+        if (f < FMIN || f > FMAX) return;
+        const x = freqToX(f, W);
+        cx.strokeStyle = '#1e242d';
+        cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, H); cx.stroke();
+        cx.fillStyle = '#3d4553';
+        cx.fillText(f >= 1000 ? f / 1000 + 'k' : f, x + 2, H - 3);
+    });
+
+    // Hidden filter (revealed after submit)
+    if (revealHidden && hiddenP && ac) {
+        const ghost = ac.createBiquadFilter();
+        ghost.type = 'peaking';
+        ghost.frequency.value = hiddenP.freq;
+        ghost.Q.value         = hiddenP.q;
+        ghost.gain.value      = hiddenP.gain;
+        drawCurve(ghost, '#3fb950', 2.5, W, H);
+    }
+
+    // User filter
+    if (userNode) drawCurve(userNode, '#58a6ff', 2, W, H);
+}
+
+function drawCurve(node, color, lw, W, H) {
+    const { freqs, mag } = getResp(node);
+    cx.strokeStyle = color;
+    cx.lineWidth   = lw;
+    cx.shadowColor = color;
+    cx.shadowBlur  = 8;
+    cx.beginPath();
+    freqs.forEach((f, i) => {
+        const x  = freqToX(f, W);
+        const db = 20 * Math.log10(Math.max(mag[i], 1e-7));
+        const y  = Math.max(0, Math.min(H, dbToY(db, H)));
+        i === 0 ? cx.moveTo(x, y) : cx.lineTo(x, y);
+    });
+    cx.stroke();
+    cx.shadowBlur = 0;
+}
+
+/* ── Scoring ───────────────────────────────────────────────── */
+function computeScore() {
+    const uf = slToFreq(+slFreq.value);
+    const uq = slToQ(+slQ.value);
+    const ug = slToGain(+slGain.value);
+
+    // Frequency: 60% — log scale, 1.5 octaves off → 0
+    const freqOct  = Math.abs(Math.log2(uf / hiddenP.freq));
+    const freqScore = Math.max(0, 1 - freqOct / 1.5);
+
+    // Q: 20% — log scale, 1.5 octaves off → 0
+    const qOct  = Math.abs(Math.log2(uq / hiddenP.q));
+    const qScore = Math.max(0, 1 - qOct / 1.5);
+
+    // Gain: 20% — linear dB, 12 dB off → 0
+    const gainScore = Math.max(0, 1 - Math.abs(ug - hiddenP.gain) / 12);
+
+    return Math.round(100 * (0.60 * freqScore + 0.20 * qScore + 0.20 * gainScore));
+}
+
+/* ── Button events ─────────────────────────────────────────── */
+btnPlay.addEventListener('click', async () => {
+    if (!audioReady) return;
+    await ac.resume();
+    newRound();
+});
+
+btnStop.addEventListener('click', () => {
+    stopPlayback();
+    statusEl.textContent = 'stopped · press play for a new round';
+});
+
+btnSubmit.addEventListener('click', () => {
+    if (answered || !hiddenP) return;
+    answered = true;
+    stopPlayback();
+
+    const pct = computeScore();
+    scoreData.rounds++;
+    scoreData.sum += pct;
+    if (scoreData.best === null || pct > scoreData.best) scoreData.best = pct;
+
+    const avg = Math.round(scoreData.sum / scoreData.rounds);
+    scoreEl.textContent = avg + '%';
+    bestEl.textContent  = scoreData.best + '%';
+
+    feedbackEl.className = pct >= 80 ? 'great' : pct >= 50 ? 'ok' : 'poor';
+    feedbackEl.textContent = pct >= 80 ? `✓ ${pct}% — great ear!`
+                           : pct >= 50 ? `~ ${pct}% — close`
+                           : `✗ ${pct}% — keep listening`;
+
+    statusEl.textContent = `hidden: ${Math.round(hiddenP.freq)} Hz · Q ${hiddenP.q.toFixed(1)} · ${hiddenP.gain.toFixed(1)} dB`;
+    legHidden.style.display = 'inline';
+    drawEQ(true);
+
+    btnNext.style.display  = 'inline-block';
+    btnSubmit.disabled     = true;
+});
+
+btnNext.addEventListener('click', () => btnPlay.click());
+btnAb.addEventListener('click', toggleAB);
+
+/* ── Slider events ─────────────────────────────────────────── */
+[slFreq, slQ, slGain].forEach(sl => sl.addEventListener('input', updateSliders));
+
+/* ── Keyboard ──────────────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (answered) btnNext.click();
+        else if (!isPlaying) btnPlay.click();
+    }
+    if (e.code === 'KeyB' && isPlaying && !answered) toggleAB();
+    if (e.code === 'Enter' && !answered && isPlaying) btnSubmit.click();
+});
+
+/* ── Resize ────────────────────────────────────────────────── */
+window.addEventListener('resize', () => drawEQ(answered && !!hiddenP));
+
+/* ── Init ──────────────────────────────────────────────────── */
+initAudio().catch(() => {
+    statusEl.textContent = 'audio failed — try reloading';
+});
+</script>
+</body>
+</html>

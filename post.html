@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post &mdash; Nathan Howland</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <nav id="nav">
+        <div class="nav-inner">
+            <a class="nav-logo" href="index.html">Nathan Howland</a>
+            <button class="nav-toggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links">
+                <li><a href="index.html#about">About</a></li>
+                <li><a href="index.html#music">Music</a></li>
+                <li><a href="index.html#contact">Contact</a></li>
+                <li class="nav-projects"><a href="projects.html">Projects</a></li>
+                <li class="nav-blog"><a href="blog.html">Blog</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="section">
+        <div class="container">
+            <a href="blog.html" class="post-back">&larr; Back to Blog</a>
+            <div class="post-header">
+                <time id="post-date"></time>
+                <h1 id="post-title">Loading&hellip;</h1>
+            </div>
+            <div id="post-body" class="post-body"></div>
+            <a href="blog.html" class="post-back post-back-bottom">&larr; Back to Blog</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Nathan Howland</p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script>
+        function formatDate(str) {
+            const [y, m, d] = str.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const file = params.get('post');
+
+        if (!file) {
+            window.location.href = 'blog.html';
+        } else {
+            Promise.all([
+                fetch('blog/posts/posts.json').then(r => r.json()),
+                fetch('blog/posts/' + file).then(r => r.text())
+            ]).then(function(results) {
+                const posts = results[0];
+                const text = results[1];
+                const meta = posts.find(function(p) { return p.file === file; }) || {};
+
+                document.title = (meta.title || 'Post') + ' — Nathan Howland';
+                document.getElementById('post-title').textContent = meta.title || file;
+                if (meta.date) {
+                    document.getElementById('post-date').textContent = formatDate(meta.date);
+                }
+
+                const body = document.getElementById('post-body');
+                text.trim().split(/\n\n+/).forEach(function(block) {
+                    const trimmed = block.trim();
+                    if (!trimmed) return;
+
+                    // Image tag: [image: filename.jpg] or [image: filename.jpg | caption]
+                    const imgMatch = trimmed.match(/^\[image:\s*([^\]|]+?)(?:\|\s*([^\]]*))?\]$/i);
+                    if (imgMatch) {
+                        const figure = document.createElement('figure');
+                        figure.className = 'post-figure';
+                        const img = document.createElement('img');
+                        img.src = 'blog/posts/images/' + imgMatch[1].trim();
+                        img.alt = imgMatch[2] ? imgMatch[2].trim() : '';
+                        img.className = 'post-img';
+                        figure.appendChild(img);
+                        if (imgMatch[2] && imgMatch[2].trim()) {
+                            const cap = document.createElement('figcaption');
+                            cap.textContent = imgMatch[2].trim();
+                            figure.appendChild(cap);
+                        }
+                        body.appendChild(figure);
+                        return;
+                    }
+
+                    const p = document.createElement('p');
+                    p.textContent = trimmed.replace(/\n/g, ' ');
+                    body.appendChild(p);
+                });
+            }).catch(function() {
+                document.getElementById('post-title').textContent = 'Post not found';
+                document.getElementById('post-body').innerHTML = '<p>Could not load this post.</p>';
+            });
+        }
+    </script>
+</body>
+</html>

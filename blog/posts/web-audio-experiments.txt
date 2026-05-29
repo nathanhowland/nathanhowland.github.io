@@ -1,0 +1,13 @@
+A few months ago I started building browser-based audio tools, mostly because I wanted a way to experiment with synthesis and signal processing without having to reach for Max/MSP or SuperCollider every time. I had a vague understanding that browsers could do audio, but I had no idea how capable the Web Audio API actually is.
+
+The API works around a graph of AudioNode objects. You create sources — oscillators, buffer players, or microphone input via getUserMedia — and route them through processing nodes like filters, gains, and convolution reverbs before finally connecting to the destination, which is the speakers. The mental model is a lot like a hardware signal chain or a DAW's routing view. Once I understood that, everything started clicking.
+
+What surprised me most was the AnalyserNode. It gives you real-time FFT data as a typed array, which you can paint onto a canvas on every animation frame. Watching the frequency spectrum move with a live audio signal is deeply satisfying, and it makes it easy to build visual tools that reinforce what you're hearing. I ended up spending way more time on the visualizer than on the actual synthesis engine.
+
+[image: noise.png | Smooth noise field — the kind of texture you get when interpolating random values across a grid, similar to how audio waveforms look when visualized at low zoom.]
+
+The hard parts: timing. The audio context has its own high-resolution clock (AudioContext.currentTime), and if you schedule events using JavaScript's setTimeout instead of the audio clock, you get jitter. The Web Audio API is designed for precise scheduling, but it requires you to think ahead and queue events slightly in advance. Adjusting to that mental model took a while — live performance has trained me to react in the moment, not schedule 100ms ahead.
+
+I'm planning to turn a few of these experiments into proper apps and post them on the Projects page. The first will probably be a simple oscilloscope and spectrogram tool. Nothing revolutionary, just a clean implementation of what I've been messing around with.
+
+If you've worked with the Web Audio API and have thoughts — or if you want to collaborate on something — feel free to reach out via the contact section.

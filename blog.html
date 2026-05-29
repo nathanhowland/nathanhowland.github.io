@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog &mdash; Nathan Howland</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <nav id="nav">
+        <div class="nav-inner">
+            <a class="nav-logo" href="index.html">Nathan Howland</a>
+            <button class="nav-toggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+            <ul class="nav-links">
+                <li><a href="index.html#about">About</a></li>
+                <li><a href="index.html#music">Music</a></li>
+                <li><a href="index.html#contact">Contact</a></li>
+                <li class="nav-projects"><a href="projects.html">Projects</a></li>
+                <li class="nav-blog"><a href="blog.html" class="active">Blog</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <div class="container">
+            <h1>Blog</h1>
+            <p>Thoughts on music & tech</p>
+        </div>
+    </div>
+
+    <section class="section">
+        <div class="container">
+            <div id="post-list" class="blog-list">
+                <p class="blog-loading">Loading posts&hellip;</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Nathan Howland</p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script>
+        function formatDate(str) {
+            const [y, m, d] = str.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+                year: 'numeric', month: 'long', day: 'numeric'
+            });
+        }
+
+        fetch('blog/posts/posts.json')
+            .then(r => r.json())
+            .then(posts => {
+                const list = document.getElementById('post-list');
+                list.innerHTML = '';
+                if (!posts.length) {
+                    list.innerHTML = '<p>No posts yet.</p>';
+                    return;
+                }
+                posts.slice().reverse().forEach(post => {
+                    const el = document.createElement('article');
+                    el.className = 'blog-entry';
+                    el.innerHTML =
+                        '<time>' + formatDate(post.date) + '</time>' +
+                        '<h2><a href="post.html?post=' + encodeURIComponent(post.file) + '">' + post.title + '</a></h2>' +
+                        '<p class="blog-excerpt">' + post.description + '</p>';
+                    list.appendChild(el);
+                });
+            })
+            .catch(() => {
+                document.getElementById('post-list').innerHTML =
+                    '<p>Could not load posts. Serve the site over HTTP to use the blog (e.g. <code>python3 -m http.server</code>).</p>';
+            });
+    </script>
+</body>
+</html>
