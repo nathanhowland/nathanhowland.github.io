@@ -1,0 +1,23 @@
+In September 2025 I began performing electro-acoustic music outside of an academic environment. The first show was at a local student house/collective called The Yard.
+
+[image: flyer.jpeg | Flyer for the show at The Yard, September 19, 2025.]
+
+I performed with a collection of small acoustic instruments that I think produce an interesting set of timbral options, alongside my Mac Mini packed inside a small wooden briefcase with my interface, a power strip, and a tiny monitor.
+
+[image: setup.png | My rig for the night — acoustic instruments, interface, and Mac Mini packed into a briefcase.]
+
+I had arranged a handful of audio effects inside Ableton Live with automation lanes to draw out a timeline for my performance: a swell of ambient delay/resonator effects that gradually descends into a destructive series of distortion modules. Various parameters were also audio-reactive, determined by the incoming pitch and volume of the acoustic instruments. The DSP effects of the performance weren't innovative, but they let me build a sonic atmosphere to express gestural principles coherently.
+
+[video: assets/video_media/9_19_2025_backyard.MOV | A clip from the performance at The Yard.]
+
+[image: nathan-on-floor.png]
+
+During the performance my friend Isis laid down on the floor with me during the final descent of the improvisation. We had been attending a lot of noise and experimental electronic music performances over the last couple months, where performers and audience members interacted in similar ways, and I think she felt inspired. The audience found it compelling.
+
+[image: icey.jpeg]
+
+My dear friend Sam also played a DJ set spinning jungle. A wonderful evening with friends.
+
+[imagepair: sam-dj.png | sam-and-bella.jpeg]
+
+I walked away from the evening inspired to perform more technically complicated pieces, along with some new wisdom on how to troubleshoot tech for my own performances. I would go on to start performing these kinds of electro-acoustic shows with a Raspberry Pi as my main DSP engine instead of my Mac Mini.

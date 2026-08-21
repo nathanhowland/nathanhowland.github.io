@@ -119,21 +119,30 @@ a:hover { text-decoration: underline; }
 
 /* ===== Hero ===== */
 .hero {
+    position: relative;
     min-height: 100vh;
     display: flex;
     align-items: center;
     padding-top: var(--nav-height);
     background-color: var(--bg);
-    background-image:
-        url('../assets/background.png'),
-        radial-gradient(ellipse at 25% 55%, rgba(88, 166, 255, 0.07) 0%, transparent 60%),
-        repeating-linear-gradient(0deg, transparent, transparent 47px, rgba(88, 166, 255, 0.03) 48px),
-        repeating-linear-gradient(90deg, transparent, transparent 47px, rgba(88, 166, 255, 0.03) 48px);
-    background-size: cover, auto, 48px 48px, 48px 48px;
-    background-position: center, center, 0 0, 0 0;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url('../assets/coldvisions-watermark.png');
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+    opacity: 0.08;
+    pointer-events: none;
 }
 
 .hero-inner {
+    position: relative;
+    z-index: 1;
     max-width: var(--max-width);
     margin: 0 auto;
     padding: 60px 24px;
@@ -270,37 +279,89 @@ a:hover { text-decoration: underline; }
 
 .timeline-content p { font-size: 0.9375rem; }
 
-/* ===== Music / Media Grid ===== */
-.media-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 24px;
+/* ===== Music Page: Project List ===== */
+.music-list {
+    display: flex;
+    flex-direction: column;
     margin-top: 32px;
 }
 
-.media-card {
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    overflow: hidden;
-    background: var(--bg-alt);
-    transition: border-color 0.15s, box-shadow 0.15s;
+.music-row {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    padding: 32px 0;
+    border-bottom: 1px solid var(--border);
+    color: inherit;
 }
 
-.media-card:hover {
-    border-color: rgba(88, 166, 255, 0.4);
-    box-shadow: 0 4px 20px rgba(88, 166, 255, 0.08);
-}
+.music-row:first-child { padding-top: 0; }
+.music-row:last-child { border-bottom: none; padding-bottom: 0; }
 
-.media-thumb {
-    width: 100%;
+.music-row:hover { text-decoration: none; }
+.music-row:hover .music-row-art { border-color: rgba(88, 166, 255, 0.4); }
+.music-row:hover .music-row-text h3 { color: var(--accent); }
+
+.music-row-art {
+    width: 160px;
     height: 160px;
-    background: #1a2030;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+    transition: border-color 0.15s;
+}
+
+.music-row-text { flex: 1; min-width: 0; padding-top: 4px; }
+
+.music-row-text h3 {
+    margin-bottom: 10px;
+    color: var(--text);
+    transition: color 0.15s;
+}
+
+.music-row-text p {
+    font-size: 0.9375rem;
+    line-height: 1.75;
+}
+
+/* ===== Music Project Detail Pages ===== */
+.project-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+
+.project-cover {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.project-artist {
+    font-size: 1.0625rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.project-media { margin-top: 40px; max-width: 680px; }
+.project-media + .project-media { margin-top: 32px; }
+
+.project-media h4 {
+    font-size: 0.9375rem;
+    color: var(--text);
+    margin-bottom: 12px;
 }
 
 .media-video {
     width: 100%;
     display: block;
     background: #000;
+    border-radius: 6px;
+    border: 1px solid var(--border);
 }
 
 .media-soundcloud {
@@ -310,15 +371,32 @@ a:hover { text-decoration: underline; }
     border: none;
 }
 
-.media-info { padding: 16px; }
-
-.media-info h4 {
-    font-size: 0.9375rem;
-    margin-bottom: 4px;
-    color: var(--text);
+.media-soundcloud-set {
+    width: 100%;
+    height: 420px;
+    display: block;
+    border: none;
 }
 
-.media-info p { font-size: 0.875rem; }
+.media-youtube-wrap {
+    position: relative;
+    width: 100%;
+    height: 0;
+    padding-bottom: 56.25%;
+    background: #000;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.media-youtube-wrap iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
 
 /* ===== Contact ===== */
 .contact-container { text-align: center; }
@@ -474,13 +552,23 @@ footer p { font-size: 0.875rem; color: var(--text-muted); }
     }
 
     .hero-actions { justify-content: flex-start; }
-    .media-grid { grid-template-columns: 1fr; }
+
+    .project-header-inner { flex-direction: column; align-items: flex-start; text-align: left; }
+    .project-cover { width: 100%; height: auto; aspect-ratio: 1 / 1; }
 
     .timeline { padding-left: 16px; }
     .timeline-entry { padding-left: 24px; }
 
     .contact-item { flex-direction: column; gap: 4px; text-align: center; }
     .contact-label { text-align: center; min-width: unset; }
+
+    .blog-entry-inner { flex-direction: column; }
+    .blog-entry-thumb { width: 100%; height: 180px; }
+
+    .post-imagepair { grid-template-columns: 1fr; }
+
+    .music-row { flex-direction: column; }
+    .music-row-art { width: 100%; height: auto; aspect-ratio: 1 / 1; }
 }
 
 /* ===== Blog Nav Placement ===== */
@@ -496,6 +584,24 @@ footer p { font-size: 0.875rem; color: var(--text-muted); }
 }
 .blog-entry:first-child { padding-top: 0; }
 .blog-entry:last-child { border-bottom: none; padding-bottom: 0; }
+
+.blog-entry-inner {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.blog-entry-thumb {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    flex-shrink: 0;
+}
+
+.blog-entry-content { flex: 1; min-width: 0; }
 
 .blog-entry time {
     display: block;
@@ -580,6 +686,32 @@ footer p { font-size: 0.875rem; color: var(--text-muted); }
     color: var(--text-muted);
     margin-top: 8px;
     font-style: italic;
+}
+
+.post-video {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: #000;
+}
+
+.post-imagepair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    max-width: 680px;
+    margin: 0 0 1.5rem;
+}
+
+.post-imagepair img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    display: block;
 }
 
 /* ===== Section Backgrounds ===== */

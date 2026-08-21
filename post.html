@@ -16,9 +16,8 @@
             </button>
             <ul class="nav-links">
                 <li><a href="index.html#about">About</a></li>
-                <li><a href="index.html#music">Music</a></li>
                 <li><a href="index.html#contact">Contact</a></li>
-                <li class="nav-projects"><a href="projects.html">Projects</a></li>
+                <li><a href="music.html">Music</a></li>
                 <li class="nav-blog"><a href="blog.html">Blog</a></li>
             </ul>
         </div>
@@ -36,12 +35,6 @@
         </div>
     </section>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 Nathan Howland</p>
-        </div>
-    </footer>
-
     <script src="js/main.js"></script>
     <script>
         function formatDate(str) {
@@ -52,21 +45,22 @@
         }
 
         const params = new URLSearchParams(window.location.search);
-        const file = params.get('post');
+        const slug = params.get('post');
 
-        if (!file) {
+        if (!slug) {
             window.location.href = 'blog.html';
         } else {
             Promise.all([
                 fetch('blog/posts/posts.json').then(r => r.json()),
-                fetch('blog/posts/' + file).then(r => r.text())
+                fetch('blog/posts/' + slug + '/post.txt').then(r => r.text())
             ]).then(function(results) {
                 const posts = results[0];
                 const text = results[1];
-                const meta = posts.find(function(p) { return p.file === file; }) || {};
+                const meta = posts.find(function(p) { return p.slug === slug; }) || {};
+                const imagesDir = 'blog/posts/' + slug + '/images/';
 
                 document.title = (meta.title || 'Post') + ' — Nathan Howland';
-                document.getElementById('post-title').textContent = meta.title || file;
+                document.getElementById('post-title').textContent = meta.title || slug;
                 if (meta.date) {
                     document.getElementById('post-date').textContent = formatDate(meta.date);
                 }
@@ -82,13 +76,49 @@
                         const figure = document.createElement('figure');
                         figure.className = 'post-figure';
                         const img = document.createElement('img');
-                        img.src = 'blog/posts/images/' + imgMatch[1].trim();
+                        img.src = imagesDir + imgMatch[1].trim();
                         img.alt = imgMatch[2] ? imgMatch[2].trim() : '';
                         img.className = 'post-img';
                         figure.appendChild(img);
                         if (imgMatch[2] && imgMatch[2].trim()) {
                             const cap = document.createElement('figcaption');
                             cap.textContent = imgMatch[2].trim();
+                            figure.appendChild(cap);
+                        }
+                        body.appendChild(figure);
+                        return;
+                    }
+
+                    // Image pair tag: [imagepair: a.jpg | b.jpg]
+                    const pairMatch = trimmed.match(/^\[imagepair:\s*([^\]|]+?)\s*\|\s*([^\]|]+?)\]$/i);
+                    if (pairMatch) {
+                        const wrap = document.createElement('div');
+                        wrap.className = 'post-imagepair';
+                        [pairMatch[1], pairMatch[2]].forEach(function(name) {
+                            const img = document.createElement('img');
+                            img.src = imagesDir + name.trim();
+                            img.alt = '';
+                            wrap.appendChild(img);
+                        });
+                        body.appendChild(wrap);
+                        return;
+                    }
+
+                    // Video tag: [video: path/to/file.mov] or [video: path | caption]
+                    const videoMatch = trimmed.match(/^\[video:\s*([^\]|]+?)(?:\|\s*([^\]]*))?\]$/i);
+                    if (videoMatch) {
+                        const figure = document.createElement('figure');
+                        figure.className = 'post-figure';
+                        const video = document.createElement('video');
+                        video.src = videoMatch[1].trim();
+                        video.className = 'post-video';
+                        video.controls = true;
+                        video.preload = 'metadata';
+                        video.playsInline = true;
+                        figure.appendChild(video);
+                        if (videoMatch[2] && videoMatch[2].trim()) {
+                            const cap = document.createElement('figcaption');
+                            cap.textContent = videoMatch[2].trim();
                             figure.appendChild(cap);
                         }
                         body.appendChild(figure);

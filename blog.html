@@ -16,9 +16,8 @@
             </button>
             <ul class="nav-links">
                 <li><a href="index.html#about">About</a></li>
-                <li><a href="index.html#music">Music</a></li>
                 <li><a href="index.html#contact">Contact</a></li>
-                <li class="nav-projects"><a href="projects.html">Projects</a></li>
+                <li><a href="music.html">Music</a></li>
                 <li class="nav-blog"><a href="blog.html" class="active">Blog</a></li>
             </ul>
         </div>
@@ -27,7 +26,7 @@
     <div class="page-header">
         <div class="container">
             <h1>Blog</h1>
-            <p>Thoughts on music & tech</p>
+            <p>Thoughts & reflections on my experiences with music & technology</p>
         </div>
     </div>
 
@@ -38,12 +37,6 @@
             </div>
         </div>
     </section>
-
-    <footer>
-        <div class="container">
-            <p>&copy; 2025 Nathan Howland</p>
-        </div>
-    </footer>
 
     <script src="js/main.js"></script>
     <script>
@@ -66,10 +59,18 @@
                 posts.slice().reverse().forEach(post => {
                     const el = document.createElement('article');
                     el.className = 'blog-entry';
+                    const thumb = post.cover
+                        ? '<img class="blog-entry-thumb" src="blog/posts/' + post.slug + '/images/' + post.cover + '" alt="" loading="lazy">'
+                        : '';
                     el.innerHTML =
-                        '<time>' + formatDate(post.date) + '</time>' +
-                        '<h2><a href="post.html?post=' + encodeURIComponent(post.file) + '">' + post.title + '</a></h2>' +
-                        '<p class="blog-excerpt">' + post.description + '</p>';
+                        '<div class="blog-entry-inner">' +
+                            thumb +
+                            '<div class="blog-entry-content">' +
+                                '<time>' + formatDate(post.date) + '</time>' +
+                                '<h2><a href="post.html?post=' + encodeURIComponent(post.slug) + '">' + post.title + '</a></h2>' +
+                                '<p class="blog-excerpt">' + post.description + '</p>' +
+                            '</div>' +
+                        '</div>';
                     list.appendChild(el);
                 });
             })
