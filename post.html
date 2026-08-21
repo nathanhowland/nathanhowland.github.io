@@ -125,6 +125,48 @@
                         return;
                     }
 
+                    // Instagram embed: [instagram: url] or [instagram: url | caption]
+                    const igMatch = trimmed.match(/^\[instagram:\s*([^\]|]+?)(?:\|\s*([^\]]*))?\]$/i);
+                    if (igMatch) {
+                        const shortcodeMatch = igMatch[1].trim().match(/\/(p|reel|tv)\/([^/?]+)/);
+                        if (shortcodeMatch) {
+                            const figure = document.createElement('figure');
+                            figure.className = 'post-figure';
+                            const wrap = document.createElement('div');
+                            wrap.className = 'media-instagram-wrap';
+                            const iframe = document.createElement('iframe');
+                            iframe.src = 'https://www.instagram.com/' + shortcodeMatch[1] + '/' + shortcodeMatch[2] + '/embed';
+                            iframe.allowFullscreen = true;
+                            wrap.appendChild(iframe);
+                            figure.appendChild(wrap);
+                            if (igMatch[2] && igMatch[2].trim()) {
+                                const cap = document.createElement('figcaption');
+                                cap.textContent = igMatch[2].trim();
+                                figure.appendChild(cap);
+                            }
+                            body.appendChild(figure);
+                            return;
+                        }
+                    }
+
+                    // Gallery tag: [gallery: a.jpg, b.jpg, c.jpg]
+                    const galleryMatch = trimmed.match(/^\[gallery:\s*([^\]]+)\]$/i);
+                    if (galleryMatch) {
+                        const grid = document.createElement('div');
+                        grid.className = 'post-gallery';
+                        galleryMatch[1].split(',').forEach(function(name) {
+                            const trimmedName = name.trim();
+                            if (!trimmedName) return;
+                            const img = document.createElement('img');
+                            img.src = imagesDir + trimmedName;
+                            img.alt = '';
+                            img.loading = 'lazy';
+                            grid.appendChild(img);
+                        });
+                        body.appendChild(grid);
+                        return;
+                    }
+
                     const p = document.createElement('p');
                     p.textContent = trimmed.replace(/\n/g, ' ');
                     body.appendChild(p);
